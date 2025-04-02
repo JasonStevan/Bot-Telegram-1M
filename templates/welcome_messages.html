@@ -1,87 +1,282 @@
 {% extends 'base.html' %}
 
-{% block title %}Mensagens de Boas-vindas{% endblock %}
-
-{% block header %}Mensagens de Boas-vindas{% endblock %}
+{% block title %}Mensagens de Boas-vindas | Painel de Administração do Bot Telegram{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-6">
-        <div class="card bg-dark mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Configuração da Mensagem de Boas-vindas</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('welcome_messages') }}">
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if welcome_config.enabled %}checked{% endif %}>
-                        <label class="form-check-label" for="enabled">
-                            Ativar mensagens de boas-vindas
-                        </label>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="welcome_message" class="form-label">Mensagem de Boas-vindas</label>
-                        <textarea class="form-control" id="welcome_message" name="welcome_message" rows="6" onkeyup="previewWelcomeMessage()">{{ welcome_config.message }}</textarea>
-                        <small class="form-text text-muted">
-                            Você pode usar as seguintes variáveis:
-                            <ul>
-                                <li><code>{first_name}</code> - Primeiro nome do usuário</li>
-                                <li><code>{last_name}</code> - Sobrenome do usuário</li>
-                                <li><code>{username}</code> - Nome de usuário (ou primeiro nome, se não tiver)</li>
-                            </ul>
-                            Você também pode usar formatação HTML, como &lt;b&gt;negrito&lt;/b&gt; e &lt;i&gt;itálico&lt;/i&gt;.
-                        </small>
-                    </div>
-                    
-                    <div>
-                        <button type="submit" class="btn btn-primary">Salvar Configuração</button>
-                        <button type="submit" name="test" value="1" class="btn btn-info">Testar Mensagem</button>
-                    </div>
-                </form>
-            </div>
+{% if telegram_warning is defined and telegram_warning %}
+<!-- Alerta para módulo telegram indisponível -->
+<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+    <h4 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Atenção!</h4>
+    <p>O módulo <strong>python-telegram-bot</strong> não está instalado corretamente. Algumas funcionalidades relacionadas ao envio de mensagens de boas-vindas estão desabilitadas.</p>
+    <hr>
+    <p class="mb-0">Para resolver este problema, execute o comando: <code>pip install python-telegram-bot==13.15</code></p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+</div>
+{% endif %}
+<div class="fade-in">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Mensagens de Boas-vindas</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <button class="btn btn-sm btn-primary {% if telegram_warning is defined and telegram_warning %}disabled{% endif %}" 
+                    type="button" 
+                    {% if telegram_warning is not defined or not telegram_warning %}data-bs-toggle="modal" data-bs-target="#testWelcomeModal"{% endif %}>
+                <i class="fas fa-paper-plane me-1"></i>Testar Mensagem
+            </button>
         </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="card bg-dark mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Pré-visualização</h5>
-            </div>
-            <div class="card-body">
-                <div id="welcome-preview">
-                    <div class="card bg-dark">
-                        <div class="card-body">
-                            <p class="card-text">{{ welcome_config.message|replace('{first_name}', '<b>João</b>')|replace('{last_name}', '<b>Silva</b>')|replace('{username}', '<b>joaosilva</b>')|safe }}</p>
+
+    <div class="row mb-4">
+        <div class="col-md-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Configuração da Mensagem de Boas-vindas</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('welcome_messages') }}" id="welcomeForm">
+                        <input type="hidden" name="action" value="save">
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if welcome_config and welcome_config.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="enabled">Ativar mensagens de boas-vindas</label>
                         </div>
-                    </div>
+                        
+                        <div class="mb-3">
+                            <label for="welcome_message" class="form-label">Mensagem de Boas-vindas</label>
+                            <textarea class="form-control" id="welcome_message" name="welcome_message" rows="10" {% if not welcome_config or not welcome_config.enabled %}disabled{% endif %}>{{ welcome_config.message if welcome_config else 'Olá {user}, seja bem-vindo(a) ao nosso grupo!' }}</textarea>
+                            <div class="form-text">
+                                Você pode usar as seguintes variáveis na mensagem:<br>
+                                <code>{user}</code> - Nome do usuário<br>
+                                <code>{group}</code> - Nome do grupo
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-primary" id="previewBtn" onclick="previewWelcomeMessage()">
+                                <i class="fas fa-eye me-1"></i>Visualizar
+                            </button>
+                        </div>
+
+                        <div id="welcomePreview" class="card mb-3 d-none">
+                            <div class="card-header">
+                                <h6 class="mb-0">Pré-visualização</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="telegram-avatar me-2">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <div class="telegram-message">
+                                        <div class="telegram-username">Bot Telegram</div>
+                                        <div id="previewMessage"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        
-        <div class="card bg-dark">
-            <div class="card-header">
-                <h5 class="mb-0">Dicas e Informações</h5>
-            </div>
-            <div class="card-body">
-                <h6>Quando a mensagem de boas-vindas é enviada?</h6>
-                <p>A mensagem de boas-vindas é enviada automaticamente quando um novo membro entra no grupo onde o bot está adicionado.</p>
-                
-                <h6>Como testar a mensagem?</h6>
-                <p>Clique no botão "Testar Mensagem" para enviar uma versão de teste da mensagem para o grupo configurado.</p>
-                
-                <h6>Exemplos de mensagens de boas-vindas</h6>
-                <div class="alert alert-secondary">
-                    <p><strong>Exemplo 1:</strong></p>
-                    <p>Olá {first_name}! Bem-vindo(a) ao nosso grupo. Leia as regras fixadas e divirta-se!</p>
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Dicas e Exemplos</h5>
                 </div>
-                
-                <div class="alert alert-secondary">
-                    <p><strong>Exemplo 2:</strong></p>
-                    <p>Olá <b>{first_name} {last_name}</b>! Bem-vindo(a) ao grupo! Interaja com os membros e participe das nossas promoções.</p>
+                <div class="card-body">
+                    <p class="card-text">Uma boa mensagem de boas-vindas deve:</p>
+                    <ul class="mb-4">
+                        <li>Ser acolhedora e amigável</li>
+                        <li>Conter informações básicas sobre o grupo</li>
+                        <li>Orientar novos membros sobre regras ou comportamentos esperados</li>
+                        <li>Ter um comprimento razoável (nem muito curta, nem muito longa)</li>
+                    </ul>
+                    
+                    <h6 class="mb-2">Exemplos:</h6>
+                    <div class="example-welcome mb-3">
+                        <div class="example-title">Saudação Simples</div>
+                        <div class="example-content">
+                            Olá {user}! Seja bem-vindo(a) ao {group}. Fique à vontade para se apresentar e interagir com o pessoal.
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="useExample(1)">
+                            <i class="fas fa-copy me-1"></i>Usar
+                        </button>
+                    </div>
+                    
+                    <div class="example-welcome mb-3">
+                        <div class="example-title">Boas-vindas com Regras</div>
+                        <div class="example-content">
+                            Olá {user}! 👋
+
+Bem-vindo(a) ao {group}! 🎉
+
+Este é um espaço para compartilharmos conhecimento e experiências. Por favor, observe nossas regras:
+
+📌 Respeite todos os membros
+📌 Evite spam e conteúdo inadequado
+📌 Mantenha discussões relacionadas ao tema do grupo
+
+Esperamos que você aproveite e contribua positivamente! 😊
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="useExample(2)">
+                            <i class="fas fa-copy me-1"></i>Usar
+                        </button>
+                    </div>
+                    
+                    <div class="example-welcome">
+                        <div class="example-title">Boas-vindas Comercial</div>
+                        <div class="example-content">
+                            🌟 Bem-vindo(a), {user}! 🌟
+
+É um prazer ter você no {group}!
+
+Aqui você encontrará:
+✅ Promoções exclusivas
+✅ Lançamentos antecipados
+✅ Dicas e truques
+✅ Suporte exclusivo
+
+Fique à vontade para fazer perguntas e interagir com outros membros.
+
+Aproveite ao máximo sua experiência! 💯
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="useExample(3)">
+                            <i class="fas fa-copy me-1"></i>Usar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal de Teste da Mensagem de Boas-vindas -->
+<div class="modal fade" id="testWelcomeModal" tabindex="-1" aria-labelledby="testWelcomeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="testWelcomeModalLabel">Testar Mensagem de Boas-vindas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Esta ação irá enviar a mensagem de boas-vindas configurada para o grupo como teste.</p>
+                <p>Deseja continuar?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{{ url_for('welcome_messages') }}">
+                    <input type="hidden" name="action" value="test">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i>Enviar Teste
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .telegram-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #006dcc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
+    }
+    .telegram-message {
+        background-color: #2b2e33;
+        border-radius: 8px;
+        padding: 12px;
+        max-width: 90%;
+    }
+    .telegram-username {
+        font-weight: bold;
+        color: #49a9ee;
+        margin-bottom: 5px;
+    }
+    .example-welcome {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        background-color: rgba(0, 0, 0, 0.1);
+    }
+    .example-title {
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #89a9c9;
+    }
+    .example-content {
+        white-space: pre-line;
+        font-size: 0.9rem;
+        color: #e9ecef;
+    }
+    @media (max-width: 767.98px) {
+        .card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle do campo de mensagem de boas-vindas
+    document.addEventListener('DOMContentLoaded', function() {
+        const enabledSwitch = document.getElementById('enabled');
+        const welcomeMessage = document.getElementById('welcome_message');
+        const previewBtn = document.getElementById('previewBtn');
+        
+        enabledSwitch.addEventListener('change', function() {
+            welcomeMessage.disabled = !this.checked;
+            previewBtn.disabled = !this.checked;
+        });
+        
+        initializeTooltips();
+    });
+    
+    function previewWelcomeMessage() {
+        const welcomeMessage = document.getElementById('welcome_message').value;
+        let previewText = welcomeMessage;
+        
+        // Substituir variáveis para preview
+        previewText = previewText.replace(/{user}/g, 'Usuário Exemplo');
+        previewText = previewText.replace(/{group}/g, 'Grupo de Exemplo');
+        
+        // Mostrar preview
+        document.getElementById('previewMessage').innerText = previewText;
+        document.getElementById('welcomePreview').classList.remove('d-none');
+    }
+    
+    function useExample(exampleId) {
+        let exampleText = '';
+        
+        if (exampleId === 1) {
+            exampleText = 'Olá {user}! Seja bem-vindo(a) ao {group}. Fique à vontade para se apresentar e interagir com o pessoal.';
+        } else if (exampleId === 2) {
+            exampleText = 'Olá {user}! 👋\n\nBem-vindo(a) ao {group}! 🎉\n\nEste é um espaço para compartilharmos conhecimento e experiências. Por favor, observe nossas regras:\n\n📌 Respeite todos os membros\n📌 Evite spam e conteúdo inadequado\n📌 Mantenha discussões relacionadas ao tema do grupo\n\nEsperamos que você aproveite e contribua positivamente! 😊';
+        } else if (exampleId === 3) {
+            exampleText = '🌟 Bem-vindo(a), {user}! 🌟\n\nÉ um prazer ter você no {group}!\n\nAqui você encontrará:\n✅ Promoções exclusivas\n✅ Lançamentos antecipados\n✅ Dicas e truques\n✅ Suporte exclusivo\n\nFique à vontade para fazer perguntas e interagir com outros membros.\n\nAproveite ao máximo sua experiência! 💯';
+        }
+        
+        // Atualizar campo de mensagem
+        document.getElementById('welcome_message').value = exampleText;
+        
+        // Ativar o switch se estiver desativado
+        document.getElementById('enabled').checked = true;
+        document.getElementById('welcome_message').disabled = false;
+        
+        // Mostrar preview
+        previewWelcomeMessage();
+    }
+</script>
 {% endblock %}
