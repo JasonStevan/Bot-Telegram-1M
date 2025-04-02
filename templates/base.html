@@ -282,23 +282,24 @@
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
                     </div>`;
                     
+                    // Insere antes do container de transição
                     alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
                 }
-                
-                hideLoader();
             })
             .catch(error => {
                 console.error('Erro:', error);
-                hideLoader();
-                
                 // Exibe mensagem de erro
                 const alertsContainer = document.querySelector('.page-transition-container').parentNode;
                 const alertHtml = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    Erro ao comunicar com o servidor: ${error.message}
+                    Erro de comunicação com o servidor.
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
                 </div>`;
                 
+                // Insere antes do container de transição
                 alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
+            })
+            .finally(() => {
+                hideLoader();
             });
         }
 
@@ -308,54 +309,62 @@
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         }
-        
+
         function initializeDashboard() {
-            // Código específico para inicialização do dashboard
+            // Código específico para o dashboard
             console.log('Dashboard inicializado');
         }
-        
+
         function setupPageTransitions() {
-            // Adiciona eventos para transições de página
-            document.querySelectorAll('a:not([target="_blank"])').forEach(link => {
-                if (!link.getAttribute('href').startsWith('#') && !link.getAttribute('href').startsWith('javascript:')) {
-                    link.addEventListener('click', function(e) {
-                        // Não mostra loader para botões de logout ou se o link tiver a classe no-transition
-                        if (link.getAttribute('href').includes('logout') || link.classList.contains('no-transition')) {
-                            return true;
-                        }
-                        
-                        e.preventDefault();
-                        showLoader();
-                        setTimeout(() => {
-                            window.location.href = link.getAttribute('href');
-                        }, 200);
-                    });
-                }
+            const links = document.querySelectorAll('a:not([target="_blank"]):not([href^="#"]):not([href^="javascript"]):not([href^="mailto"])');
+            
+            links.forEach(link => {
+                // Ignora links externos
+                if (link.hostname !== window.location.hostname) return;
+                
+                // Adiciona evento de clique
+                link.addEventListener('click', function(e) {
+                    // Não intercepta se com tecla modificadora
+                    if (e.metaKey || e.ctrlKey) return;
+                    
+                    e.preventDefault();
+                    const href = this.getAttribute('href');
+                    
+                    // Mostra o loader
+                    showLoader();
+                    
+                    // Navega após um pequeno delay para o loader ser visível
+                    setTimeout(() => {
+                        window.location.href = href;
+                    }, 300);
+                });
             });
             
-            // Adiciona eventos para formulários
-            document.querySelectorAll('form').forEach(form => {
-                if (!form.classList.contains('no-transition')) {
-                    form.addEventListener('submit', function(e) {
-                        // Não mostra loader se o formulário tiver a classe no-transition
-                        if (form.classList.contains('no-transition')) {
-                            return true;
-                        }
-                        
-                        showLoader();
-                    });
-                }
+            // Também intercepta submissões de formulário para mostrar o loader
+            const forms = document.querySelectorAll('form:not([target="_blank"])');
+            
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    showLoader();
+                });
             });
         }
-        
+
         function showLoader() {
-            document.querySelector('.content-loader').classList.add('show');
+            const loader = document.querySelector('.content-loader');
+            if (loader) {
+                loader.classList.add('show');
+            }
         }
-        
+
         function hideLoader() {
-            document.querySelector('.content-loader').classList.remove('show');
+            const loader = document.querySelector('.content-loader');
+            if (loader) {
+                loader.classList.remove('show');
+            }
         }
     </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
