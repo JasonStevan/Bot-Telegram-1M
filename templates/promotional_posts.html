@@ -1,382 +1,306 @@
 {% extends 'base.html' %}
 
-{% block title %}Posts Promocionais | Painel de Administração do Bot Telegram{% endblock %}
+{% block title %}Posts Promocionais{% endblock %}
 
 {% block content %}
-{% if telegram_warning is defined and telegram_warning %}
-<!-- Alerta para módulo telegram indisponível -->
-<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-    <h4 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Atenção!</h4>
-    <p>O módulo <strong>python-telegram-bot</strong> não está instalado corretamente. Algumas funcionalidades relacionadas ao envio de posts estão desabilitadas.</p>
-    <hr>
-    <p class="mb-0">Para resolver este problema, execute o comando: <code>pip install python-telegram-bot==13.15</code></p>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
-</div>
-{% endif %}
-<div class="fade-in">
-    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-        <h1 class="h2">Posts Promocionais</h1>
-        <div class="btn-toolbar mb-2 mb-md-0">
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createPostModal">
-                <i class="fas fa-plus me-1"></i>Criar Novo Post
-            </button>
-        </div>
+<div class="container mt-4">
+    <h1 class="mb-4">Posts Promocionais</h1>
+    
+    {% if telegram_warning %}
+    <div class="alert alert-warning" role="alert">
+        <i class="fas fa-exclamation-triangle"></i> O módulo Telegram não está disponível. Algumas funcionalidades podem estar limitadas.
     </div>
-
-    <!-- Lista de Posts Promocionais -->
-    <div class="row mb-4">
+    {% endif %}
+    
+    <!-- Botão para abrir modal de novo post -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <p class="text-muted">Crie posts que serão enviados periodicamente para o grupo do Telegram</p>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPostModal">
+            <i class="fas fa-plus"></i> Novo Post
+        </button>
+    </div>
+    
+    <!-- Lista de posts -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
         {% if posts|length > 0 %}
             {% for post in posts %}
-                <div class="col-md-6 mb-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-dark d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">{{ post.title }}</h5>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton{{ post.id }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton{{ post.id }}">
-                                    <li>
-                                        <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editPostModal{{ post.id }}">
-                                            <i class="fas fa-edit me-2"></i>Editar
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#previewPostModal{{ post.id }}">
-                                            <i class="fas fa-eye me-2"></i>Visualizar
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item {% if telegram_warning is defined and telegram_warning %}disabled{% endif %}" 
-                                                {% if telegram_warning is not defined or not telegram_warning %}
-                                                data-bs-toggle="modal" data-bs-target="#testPostModal{{ post.id }}"
-                                                {% endif %}>
-                                            <i class="fas fa-paper-plane me-2"></i>Enviar para Teste
-                                        </button>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deletePostModal{{ post.id }}">
-                                            <i class="fas fa-trash-alt me-2"></i>Excluir
-                                        </button>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text">{{ post.content[:150] }}{% if post.content|length > 150 %}...{% endif %}</p>
-                            {% if post.image_url %}
-                                <p class="mb-1 text-muted small">
-                                    <i class="fas fa-image me-1"></i>Contém imagem
-                                </p>
+            <div class="col">
+                <div class="card h-100 border-0 shadow-sm">
+                    {% if post.image_url %}
+                    <div class="position-relative">
+                        <img src="{{ post.image_url }}" class="card-img-top" alt="{{ post.title }}" style="height: 180px; object-fit: cover;">
+                        <span class="position-absolute top-0 end-0 badge bg-primary m-2">
+                            <i class="fas fa-image"></i> Com imagem
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 120px;">
+                        <i class="fas fa-file-alt fa-3x text-muted"></i>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card-body">
+                        <h5 class="card-title">{{ post.title }}</h5>
+                        <p class="card-text text-muted small">
+                            <i class="fas fa-clock"></i> 
+                            {% if post.created_at %}
+                                {{ post.created_at.split('T')[0] }}
+                            {% else %}
+                                Data desconhecida
                             {% endif %}
-                            {% if post.external_link %}
-                                <p class="mb-0 text-muted small">
-                                    <i class="fas fa-link me-1"></i>Contém link externo
-                                </p>
-                            {% endif %}
-                        </div>
-                        <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+                        </p>
+                        <p class="card-text">{{ post.content|truncate(100) }}</p>
+                        {% if post.external_link %}
+                        <p class="card-text">
                             <small class="text-muted">
-                                <i class="far fa-calendar-alt me-1"></i>
-                                {{ post.created_at.strftime('%d/%m/%Y %H:%M') if post.created_at else 'Data não disponível' }}
+                                <i class="fas fa-link"></i> Link externo incluído
                             </small>
-                            <div>
-                                <button class="btn btn-sm btn-primary me-1" data-bs-toggle="modal" data-bs-target="#editPostModal{{ post.id }}">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePostModal{{ post.id }}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                onclick="window.location.href='#editPostModal-{{ post.id }}'" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#editPostModal-{{ post.id }}">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                onclick="window.location.href='#deletePostModal-{{ post.id }}'" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deletePostModal-{{ post.id }}">
+                                <i class="fas fa-trash"></i> Excluir
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" 
+                                onclick="window.location.href='#testPostModal-{{ post.id }}'" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#testPostModal-{{ post.id }}"
+                                {% if telegram_warning %}disabled{% endif %}>
+                                <i class="fas fa-paper-plane"></i> Testar
+                            </button>
                         </div>
                     </div>
                 </div>
-
-                <!-- Modal de Edição do Post {{ post.id }} -->
-                <div class="modal fade" id="editPostModal{{ post.id }}" tabindex="-1" aria-labelledby="editPostModalLabel{{ post.id }}" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="editPostModalLabel{{ post.id }}">Editar Post Promocional</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Modal de Edição -->
+            <div class="modal fade" id="editPostModal-{{ post.id }}" tabindex="-1" aria-labelledby="editPostModalLabel-{{ post.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editPostModalLabel-{{ post.id }}">Editar Post</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form action="{{ url_for('promotional_posts') }}" method="post">
+                            <div class="modal-body">
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="post_id" value="{{ post.id }}">
+                                
+                                <div class="mb-3">
+                                    <label for="edit-title-{{ post.id }}" class="form-label">Título</label>
+                                    <input type="text" class="form-control" id="edit-title-{{ post.id }}" name="title" value="{{ post.title }}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="edit-content-{{ post.id }}" class="form-label">Conteúdo</label>
+                                    <textarea class="form-control" id="edit-content-{{ post.id }}" name="content" rows="5" required>{{ post.content }}</textarea>
+                                    <small class="text-muted">Dica: Use markdown para formatação (*negrito*, _itálico_, [link](url))</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="edit-image-url-{{ post.id }}" class="form-label">URL da Imagem (opcional)</label>
+                                    <input type="url" class="form-control" id="edit-image-url-{{ post.id }}" name="image_url" value="{{ post.image_url }}">
+                                    <small class="text-muted">Uma URL para uma imagem que será exibida junto com o post</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="edit-external-link-{{ post.id }}" class="form-label">Link Externo (opcional)</label>
+                                    <input type="url" class="form-control" id="edit-external-link-{{ post.id }}" name="external_link" value="{{ post.external_link }}">
+                                    <small class="text-muted">Um link para um site externo relacionado ao post</small>
+                                </div>
                             </div>
-                            <form method="post" action="{{ url_for('promotional_posts') }}">
-                                <div class="modal-body">
-                                    <input type="hidden" name="action" value="edit">
-                                    <input type="hidden" name="post_id" value="{{ post.id }}">
-                                    
-                                    <div class="mb-3">
-                                        <label for="title{{ post.id }}" class="form-label">Título</label>
-                                        <input type="text" class="form-control" id="title{{ post.id }}" name="title" value="{{ post.title }}" required>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label for="content{{ post.id }}" class="form-label">Conteúdo</label>
-                                        <textarea class="form-control" id="content{{ post.id }}" name="content" rows="6" required>{{ post.content }}</textarea>
-                                        <div class="form-text">O texto será formatado como está. Você pode usar emojis e quebras de linha.</div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label for="image_url{{ post.id }}" class="form-label">URL da Imagem (opcional)</label>
-                                        <input type="url" class="form-control" id="image_url{{ post.id }}" name="image_url" value="{{ post.image_url or '' }}">
-                                        <div class="form-text">Deixe em branco se não quiser incluir uma imagem.</div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label for="external_link{{ post.id }}" class="form-label">Link Externo (opcional)</label>
-                                        <input type="url" class="form-control" id="external_link{{ post.id }}" name="external_link" value="{{ post.external_link or '' }}">
-                                        <div class="form-text">Deixe em branco se não quiser incluir um link.</div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                                </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal de Exclusão -->
+            <div class="modal fade" id="deletePostModal-{{ post.id }}" tabindex="-1" aria-labelledby="deletePostModalLabel-{{ post.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deletePostModalLabel-{{ post.id }}">Confirmar Exclusão</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Tem certeza que deseja excluir o post "<strong>{{ post.title }}</strong>"?</p>
+                            <p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Esta ação não pode ser desfeita.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <form action="{{ url_for('promotional_posts') }}" method="post" id="deleteForm-{{ post.id }}">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="post_id" value="{{ post.id }}">
+                                <button type="submit" class="btn btn-danger">Excluir</button>
                             </form>
                         </div>
                     </div>
                 </div>
-
-                <!-- Modal de Visualização do Post {{ post.id }} -->
-                <div class="modal fade" id="previewPostModal{{ post.id }}" tabindex="-1" aria-labelledby="previewPostModalLabel{{ post.id }}" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="previewPostModalLabel{{ post.id }}">Visualizar Post</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Modal de Teste -->
+            <div class="modal fade" id="testPostModal-{{ post.id }}" tabindex="-1" aria-labelledby="testPostModalLabel-{{ post.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="testPostModalLabel-{{ post.id }}">Testar Post</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Deseja enviar o post "<strong>{{ post.title }}</strong>" para o grupo do Telegram como teste?</p>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Isso enviará o post imediatamente, independente do cronograma.
                             </div>
-                            <div class="modal-body">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">{{ post.title }}</h5>
-                                        <p class="card-text" style="white-space: pre-line;">{{ post.content }}</p>
-                                        {% if post.image_url %}
-                                            <div class="post-image mb-3">
-                                                <img src="{{ post.image_url }}" alt="Imagem do post" class="img-fluid">
-                                            </div>
-                                        {% endif %}
-                                        {% if post.external_link %}
-                                            <a href="{{ post.external_link }}" target="_blank" class="btn btn-primary">
-                                                <i class="fas fa-external-link-alt me-1"></i>Acessar Link
-                                            </a>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                {% if telegram_warning is not defined or not telegram_warning %}
-                                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#testPostModal{{ post.id }}" data-bs-dismiss="modal">
-                                    <i class="fas fa-paper-plane me-1"></i>Enviar para Teste
-                                </button>
-                                {% endif %}
-                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <form action="{{ url_for('promotional_posts') }}" method="post">
+                                <input type="hidden" name="action" value="test">
+                                <input type="hidden" name="post_id" value="{{ post.id }}">
+                                <button type="submit" class="btn btn-success">Enviar Teste</button>
+                            </form>
                         </div>
                     </div>
                 </div>
-
-                <!-- Modal de Envio para Teste {{ post.id }} -->
-                <div class="modal fade" id="testPostModal{{ post.id }}" tabindex="-1" aria-labelledby="testPostModalLabel{{ post.id }}" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="testPostModalLabel{{ post.id }}">Enviar Post para Teste</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>Você está prestes a enviar este post para o grupo configurado como teste.</p>
-                                <p><strong>Título:</strong> {{ post.title }}</p>
-                                <p>Tem certeza que deseja continuar?</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <form method="post" action="{{ url_for('promotional_posts') }}" id="testForm{{ post.id }}">
-                                    <input type="hidden" name="action" value="test">
-                                    <input type="hidden" name="post_id" value="{{ post.id }}">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-paper-plane me-1"></i>Enviar
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal de Exclusão do Post {{ post.id }} -->
-                <div class="modal fade" id="deletePostModal{{ post.id }}" tabindex="-1" aria-labelledby="deletePostModalLabel{{ post.id }}" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="deletePostModalLabel{{ post.id }}">Confirmar Exclusão</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>Você está prestes a excluir o post <strong>"{{ post.title }}"</strong>.</p>
-                                <p>Esta ação não pode ser desfeita. Tem certeza que deseja continuar?</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <form method="post" action="{{ url_for('promotional_posts') }}" id="deleteForm{{ post.id }}">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="post_id" value="{{ post.id }}">
-                                    <button type="submit" class="btn btn-danger">
-                                        <i class="fas fa-trash-alt me-1"></i>Excluir
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            </div>
             {% endfor %}
         {% else %}
             <div class="col-12">
-                <div class="alert alert-info" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>Nenhum post promocional cadastrado. Comece criando um novo post!
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle fa-lg"></i>
+                    <p class="mb-0 mt-2">Nenhum post promocional cadastrado ainda.</p>
+                    <p>Clique em "Novo Post" para começar.</p>
                 </div>
             </div>
         {% endif %}
     </div>
+</div>
 
-    <!-- Modal de Criação de Post -->
-    <div class="modal fade" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="createPostModalLabel">Criar Novo Post Promocional</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form method="post" action="{{ url_for('promotional_posts') }}">
-                    <div class="modal-body">
-                        <input type="hidden" name="action" value="create">
-                        
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Título</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
-                            <div class="form-text">Um título breve e chamativo para seu post.</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="content" class="form-label">Conteúdo</label>
-                            <textarea class="form-control" id="content" name="content" rows="6" required></textarea>
-                            <div class="form-text">O texto será formatado como está. Você pode usar emojis e quebras de linha.</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="image_url" class="form-label">URL da Imagem (opcional)</label>
-                            <input type="url" class="form-control" id="image_url" name="image_url">
-                            <div class="form-text">Deixe em branco se não quiser incluir uma imagem.</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="external_link" class="form-label">Link Externo (opcional)</label>
-                            <input type="url" class="form-control" id="external_link" name="external_link">
-                            <div class="form-text">Deixe em branco se não quiser incluir um link.</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-outline-primary" onclick="previewPost()">
-                                <i class="fas fa-eye me-1"></i>Visualizar
-                            </button>
-                        </div>
-                        
-                        <div id="postPreview" class="card mb-3 d-none">
+<!-- Modal para criar novo post -->
+<div class="modal fade" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPostModalLabel">Novo Post Promocional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('promotional_posts') }}" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="create">
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">Conteúdo</label>
+                        <textarea class="form-control" id="content" name="content" rows="5" required></textarea>
+                        <small class="text-muted">Dica: Use markdown para formatação (*negrito*, _itálico_, [link](url))</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="image_url" class="form-label">URL da Imagem (opcional)</label>
+                        <input type="url" class="form-control" id="image_url" name="image_url">
+                        <small class="text-muted">Uma URL para uma imagem que será exibida junto com o post</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="external_link" class="form-label">Link Externo (opcional)</label>
+                        <input type="url" class="form-control" id="external_link" name="external_link">
+                        <small class="text-muted">Um link para um site externo relacionado ao post</small>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="card">
                             <div class="card-header">
-                                <h6 class="mb-0">Pré-visualização</h6>
+                                <h6 class="mb-0">Prévia (aproximada)</h6>
                             </div>
                             <div class="card-body">
-                                <h5 id="previewTitle" class="card-title"></h5>
-                                <p id="previewContent" class="card-text" style="white-space: pre-line;"></p>
-                                <div id="previewImageContainer" class="d-none mb-3">
-                                    <img id="previewImage" src="" alt="Imagem do post" class="img-fluid">
+                                <div id="previewTitle" class="fw-bold mb-2">Título do post</div>
+                                <div id="previewContent" class="mb-2">Conteúdo do post...</div>
+                                <div id="previewImage" class="d-none mb-2">
+                                    <div class="text-center">
+                                        <div class="bg-light d-inline-block p-2" style="max-width: 200px;">
+                                            <i class="fas fa-image fa-3x text-secondary"></i>
+                                            <div class="small text-muted">Imagem</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div id="previewLinkContainer" class="d-none">
-                                    <a id="previewLink" href="#" target="_blank" class="btn btn-primary">
-                                        <i class="fas fa-external-link-alt me-1"></i>Acessar Link
+                                <div id="previewLink" class="d-none">
+                                    <a href="#" class="text-primary">
+                                        <i class="fas fa-external-link-alt"></i> <span id="previewLinkText">Link externo</span>
                                     </a>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Criar Post</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar Post</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .post-image {
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    .dropdown-menu {
-        border: none;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    }
-    .dropdown-item {
-        padding: 0.5rem 1rem;
-    }
-    .dropdown-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    .dropdown-item.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-    .card {
-        transition: transform 0.2s;
-    }
-    .card:hover {
-        transform: translateY(-5px);
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
 <script>
-    function previewPost() {
-        const title = document.getElementById('title').value;
-        const content = document.getElementById('content').value;
-        const imageUrl = document.getElementById('image_url').value;
-        const externalLink = document.getElementById('external_link').value;
+// Script para atualizar a prévia do post
+document.addEventListener('DOMContentLoaded', function() {
+    const titleInput = document.getElementById('title');
+    const contentInput = document.getElementById('content');
+    const imageUrlInput = document.getElementById('image_url');
+    const externalLinkInput = document.getElementById('external_link');
+    
+    const previewTitle = document.getElementById('previewTitle');
+    const previewContent = document.getElementById('previewContent');
+    const previewImage = document.getElementById('previewImage');
+    const previewLink = document.getElementById('previewLink');
+    const previewLinkText = document.getElementById('previewLinkText');
+    
+    // Função para atualizar prévia
+    function updatePreview() {
+        previewTitle.textContent = titleInput.value || 'Título do post';
+        previewContent.textContent = contentInput.value || 'Conteúdo do post...';
         
-        // Atualizar preview
-        document.getElementById('previewTitle').textContent = title;
-        document.getElementById('previewContent').textContent = content;
-        
-        // Imagem
-        const imageContainer = document.getElementById('previewImageContainer');
-        const previewImage = document.getElementById('previewImage');
-        if (imageUrl) {
-            previewImage.src = imageUrl;
-            imageContainer.classList.remove('d-none');
+        if (imageUrlInput.value) {
+            previewImage.classList.remove('d-none');
         } else {
-            imageContainer.classList.add('d-none');
+            previewImage.classList.add('d-none');
         }
         
-        // Link
-        const linkContainer = document.getElementById('previewLinkContainer');
-        const previewLink = document.getElementById('previewLink');
-        if (externalLink) {
-            previewLink.href = externalLink;
-            linkContainer.classList.remove('d-none');
+        if (externalLinkInput.value) {
+            previewLink.classList.remove('d-none');
+            previewLinkText.textContent = new URL(externalLinkInput.value).hostname;
         } else {
-            linkContainer.classList.add('d-none');
+            previewLink.classList.add('d-none');
         }
-        
-        // Mostrar preview
-        document.getElementById('postPreview').classList.remove('d-none');
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeTooltips();
-        setupPageTransitions();
-    });
+    // Adicionar event listeners
+    titleInput.addEventListener('input', updatePreview);
+    contentInput.addEventListener('input', updatePreview);
+    imageUrlInput.addEventListener('input', updatePreview);
+    externalLinkInput.addEventListener('input', updatePreview);
+    
+    // Inicializar prévia
+    updatePreview();
+});
 </script>
 {% endblock %}
