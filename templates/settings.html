@@ -1,1 +1,78 @@
+{% extends 'base.html' %}
 
+{% block title %}Configurações{% endblock %}
+
+{% block header %}Configurações do Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Configurações Básicas</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings') }}">
+                    <div class="mb-3">
+                        <label for="token" class="form-label">Token do Bot</label>
+                        <input type="text" class="form-control" id="token" name="token" value="{{ config.token }}" required>
+                        <small class="form-text text-muted">O token pode ser obtido através do <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="group_id" class="form-label">ID do Grupo</label>
+                        <input type="text" class="form-control" id="group_id" name="group_id" value="{{ config.group_id }}" required>
+                        <small class="form-text text-muted">O ID do grupo onde o bot será usado. Deve começar com "-". O bot precisa ser adicionado como administrador do grupo.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="interval" class="form-label">Intervalo entre Posts (minutos)</label>
+                        <input type="number" class="form-control" id="interval" name="interval" value="{{ config.interval }}" min="1" max="1440" required>
+                        <small class="form-text text-muted">Intervalo de tempo entre o envio de posts promocionais. Recomendado: 3 a 180 minutos.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Salvar Configurações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Instruções de Configuração</h5>
+            </div>
+            <div class="card-body">
+                <h6>Como obter o Token do Bot</h6>
+                <ol>
+                    <li>Abra o <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram</li>
+                    <li>Envie o comando /newbot para criar um novo bot</li>
+                    <li>Siga as instruções para definir um nome e username para o bot</li>
+                    <li>Após criar o bot, você receberá um token de acesso em formato de texto</li>
+                    <li>Copie e cole o token no campo acima</li>
+                </ol>
+                
+                <h6>Como obter o ID do Grupo</h6>
+                <ol>
+                    <li>Adicione o bot como <b>administrador</b> do grupo</li>
+                    <li>Envie uma mensagem no grupo</li>
+                    <li>Acesse <a href="https://api.telegram.org/bot<seu_token>/getUpdates" target="_blank">https://api.telegram.org/bot<seu_token>/getUpdates</a> (substitua <seu_token> pelo token do seu bot)</li>
+                    <li>Procure na resposta JSON por "chat" e "id" (será um número negativo)</li>
+                    <li>Copie esse ID para o campo acima</li>
+                </ol>
+                
+                <h6>Permissões necessárias do Bot</h6>
+                <p>O bot precisa das seguintes permissões como administrador do grupo:</p>
+                <ul>
+                    <li>Enviar mensagens</li>
+                    <li>Adicionar novos usuários</li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Após salvar as configurações, o bot será reiniciado automaticamente.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
