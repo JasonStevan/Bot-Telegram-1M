@@ -1,160 +1,170 @@
 import os
+import json
 import logging
-import time
-import sys
+import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from functools import wraps
-from auth import check_auth, authenticate_user
-from data_manager import DataManager
 
-# Configurar logger
-logger = logging.getLogger(__name__)
+# Configuração de log para melhor depuração
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('bot_admin.log')
+    ]
+)
 
-# Verificar se podemos importar os módulos relacionados ao Telegram
-TELEGRAM_AVAILABLE = True
+# Configuração do Flask
+app = Flask(__name__)
+# Chave secreta para sessões
+app.secret_key = os.environ.get("SESSION_SECRET", "um_segredo_muito_secreto_para_sessoes")
+
+# Importações condicionais para permitir execução mesmo sem o módulo telegram
 try:
     from bot_handler import TelegramBotHandler
     from scheduler import PostScheduler
-except ImportError as e:
+    TELEGRAM_AVAILABLE = True
+    logging.info("Módulo Telegram disponível. Recursos de bot habilitados.")
+except ImportError:
+    logging.warning("Módulo Telegram não disponível. Recursos de bot desabilitados.")
     TELEGRAM_AVAILABLE = False
-    logger.error(f"Erro ao importar módulos do Telegram: {str(e)}")
-    # Criar classes mock para manter a compatibilidade
-    class MockBotHandler:
-        def __init__(self, *args, **kwargs):
-            self.logger = logging.getLogger('MockBotHandler')
-            self.logger.warning("Usando MockBotHandler - funcionalidade do bot limitada")
-            
-        def start(self):
-            return False
-            
-        def stop(self):
-            return False
-            
-        def is_running(self):
-            return False
-            
-        def send_promotional_post(self, post):
-            return False
-            
-        def test_welcome_message(self):
-            return False
-            
-        def get_stats(self):
-            return {
-                'welcome_messages_sent': 0,
-                'promo_messages_sent': 0,
-                'last_restarted': None
-            }
-    
-    class MockScheduler:
-        def __init__(self, *args, **kwargs):
-            self.logger = logging.getLogger('MockScheduler')
-            self.logger.warning("Usando MockScheduler - funcionalidade de agendamento limitada")
-            
-        def start(self):
-            return False
-            
-        def stop(self):
-            return False
-            
-        def is_running(self):
-            return False
-    
-    # Mostra um erro explicando que a biblioteca está faltando
-    logger.error("IMPORTANTE: A biblioteca python-telegram-bot não está instalada. O painel administrativo vai funcionar, mas as funcionalidades de bot estarão desabilitadas.")
-    logger.error("Para resolver: pip install python-telegram-bot==13.15")
-    
-    # Substituir as classes reais por mocks
-    TelegramBotHandler = MockBotHandler
-    PostScheduler = MockScheduler
 
-# Configuração do logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    filename='bot_admin.log',
-                    filemode='a')
+# Importar gerenciador de dados e autenticação
+from data_manager import DataManager
+from auth import authenticate_user, create_default_user
 
-# Inicialização da aplicação Flask
-app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "chave_secreta_fixa_para_producao_theblackwolf")
-
-# Garante que o diretório de dados exista
-data_dir = os.path.join(os.path.dirname(__file__), 'data')
-if not os.path.exists(data_dir):
-    try:
-        os.makedirs(data_dir)
-        logging.info(f"Diretório de dados criado: {data_dir}")
-    except Exception as e:
-        logging.error(f"Não foi possível criar o diretório de dados: {str(e)}")
-
-# Inicialização do gerenciador de dados
+# Criar instâncias globais
 data_manager = DataManager()
-
-# Variáveis globais para bot e scheduler
 bot_handler = None
 scheduler = None
 
-# Função para garantir que apenas uma instância do bot esteja rodando
+# Inicializar usuário padrão
+create_default_user()
+
+# Classes mock para quando o Telegram não está disponível
+if not TELEGRAM_AVAILABLE:
+    class MockBotHandler:
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        def start(self):
+            logging.info("MockBotHandler: start chamado")
+            return True
+        
+        def stop(self):
+            logging.info("MockBotHandler: stop chamado")
+            return True
+        
+        def is_running(self):
+            return False
+        
+        def send_promotional_post(self, post):
+            logging.info(f"MockBotHandler: send_promotional_post chamado com {post.get('title', 'unknown')}")
+            return False
+        
+        def test_welcome_message(self):
+            logging.info("MockBotHandler: test_welcome_message chamado")
+            return False
+        
+        def get_stats(self):
+            return {"error": "Telegram não disponível"}
+    
+    class MockScheduler:
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        def start(self):
+            logging.info("MockScheduler: start chamado")
+            return True
+        
+        def stop(self):
+            logging.info("MockScheduler: stop chamado")
+            return True
+        
+        def is_running(self):
+            return False
+
 def initialize_bot(force_restart=False):
+    """Inicializa o bot com base na configuração salva"""
     global bot_handler, scheduler
     
-    # Se já tiver instâncias rodando e force_restart for True, para elas
-    if force_restart and bot_handler:
-        logging.info("Forçando parada de instâncias anteriores do bot")
-        bot_handler.stop()
-        if scheduler:
-            scheduler.stop()
-        # Aguarda para garantir que os recursos foram liberados
-        time.sleep(2)
+    if not TELEGRAM_AVAILABLE:
+        logging.warning("Não é possível inicializar o bot: Módulo Telegram não disponível")
+        bot_handler = MockBotHandler(None, None, data_manager)
+        scheduler = MockScheduler(bot_handler, data_manager)
+        return False
     
     try:
-        # Obter configurações atuais
+        # Obter configuração
         config = data_manager.get_bot_config()
-        bot_token = config.get('token', '')
-        group_id = config.get('group_id', '')
-        bot_active = config.get('active', False)
         
-        if not bot_token or not group_id:
-            logging.warning("Bot não inicializado: Token ou ID do grupo não configurados")
-            bot_handler = None
-            scheduler = None
+        # Verificar se o bot deve estar ativo
+        if not config.get("active", False) and not force_restart:
+            logging.info("Bot não está configurado para iniciar automaticamente")
             return False
+        
+        token = config.get("token", "")
+        group_id = config.get("group_id", "")
+        
+        # Verificar se token e group_id estão configurados
+        if not token or not group_id:
+            logging.warning("Token ou ID do grupo não configurados")
+            return False
+        
+        # Se o bot já estiver inicializado e não for forçado a reiniciar, retorna
+        if bot_handler and bot_handler.is_running() and not force_restart:
+            logging.info("Bot já está em execução")
+            return True
             
-        # Cria novas instâncias
-        logging.info(f"Inicializando bot com token={bot_token[:5]}... e grupo={group_id}")
-        bot_handler = TelegramBotHandler(bot_token, group_id, data_manager)
+        # Parar instâncias existentes se necessário
+        if bot_handler:
+            bot_handler.stop()
+        if scheduler:
+            scheduler.stop()
+            
+        # Iniciar novas instâncias
+        bot_handler = TelegramBotHandler(token, group_id, data_manager)
         scheduler = PostScheduler(bot_handler, data_manager)
         
-        # Inicia se estiver configurado como ativo
-        if bot_active:
-            bot_handler.start()
-            scheduler.start()
-            logging.info("Bot iniciado automaticamente: configuração 'active' = True")
+        # Iniciar o bot e o agendador
+        bot_started = bot_handler.start()
+        scheduler_started = scheduler.start()
+        
+        # Atualizar o horário de reinício
+        data_manager.update_restart_time()
+        
+        if bot_started and scheduler_started:
+            logging.info("Bot e agendador inicializados com sucesso")
             return True
         else:
-            logging.info("Bot inicializado mas não iniciado: configuração 'active' = False")
-            return True
+            logging.error("Falha ao inicializar bot ou agendador")
+            return False
             
     except Exception as e:
-        logging.error(f"Erro ao inicializar o bot: {str(e)}")
-        bot_handler = None
-        scheduler = None
+        logging.error(f"Erro ao inicializar bot: {str(e)}")
+        # Usar versões de mock em caso de erro
+        bot_handler = MockBotHandler(None, None, data_manager)
+        scheduler = MockScheduler(bot_handler, data_manager)
         return False
 
-# Inicializa o bot na inicialização do app
-initialize_bot(force_restart=True)
+# Inicializar o bot na inicialização do aplicativo
+initialize_bot()
 
-# Decorator para verificar se o usuário está autenticado
+# Decorator para requerir login
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            return redirect(url_for('login'))
+        if 'username' not in session:
+            return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
-# Rotas para a interface web
+@app.route('/')
+def index():
+    return redirect(url_for('login'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -162,62 +172,59 @@ def login():
         password = request.form.get('password')
         
         if authenticate_user(username, password):
-            session['authenticated'] = True
-            flash('Login realizado com sucesso!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Credenciais inválidas!', 'danger')
+            session['username'] = username
             
+            # Redirecionar para 'next' se existir, ou para dashboard
+            next_page = request.args.get('next')
+            if next_page:
+                return redirect(next_page)
+            else:
+                return redirect(url_for('dashboard'))
+        else:
+            flash('Nome de usuário ou senha incorretos!', 'danger')
+    
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
-    flash('Você foi desconectado!', 'info')
+    flash('Você foi desconectado!', 'success')
     return redirect(url_for('login'))
 
-@app.route('/')
+@app.route('/dashboard')
 @login_required
 def dashboard():
-    global bot_handler, scheduler
+    global bot_handler
     
-    bot_status = {
-        'active': False,
-        'token_configured': False,
-        'group_configured': False,
-        'online': False
-    }
+    # Estatísticas básicas
+    stats = data_manager.get_stats()
     
-    stats = {
-        'total_posts': 0,
-        'welcome_messages_sent': 0,
-        'promo_messages_sent': 0
-    }
-    
-    config = data_manager.get_bot_config()
-    bot_status['active'] = config.get('active', False)
-    bot_status['token_configured'] = bool(config.get('token', ''))
-    bot_status['group_configured'] = bool(config.get('group_id', ''))
-    
+    # Verifica se o bot está em execução
+    bot_running = False
     if bot_handler:
         try:
-            bot_status['online'] = bot_handler.is_running()
+            bot_running = bot_handler.is_running()
         except Exception as e:
             logging.error(f"Erro ao verificar status do bot: {str(e)}")
-            bot_status['online'] = False
-        stats = bot_handler.get_stats()
     
-    promotional_posts = data_manager.get_promotional_posts()
-    stats['total_posts'] = len(promotional_posts)
+    # Carrega a configuração do bot
+    bot_config = data_manager.get_bot_config()
+    
+    # Contagem de posts promocionais
+    posts = data_manager.get_promotional_posts()
+    post_count = len(posts)
     
     # Verifica se o módulo telegram está disponível
     telegram_warning = not TELEGRAM_AVAILABLE
     
-    return render_template('dashboard.html', 
-                          bot_status=bot_status, 
-                          stats=stats,
-                          config=config,
-                          telegram_warning=telegram_warning)
+    return render_template(
+        'dashboard.html', 
+        stats=stats, 
+        bot_running=bot_running, 
+        bot_config=bot_config,
+        post_count=post_count,
+        telegram_warning=telegram_warning
+    )
 
 @app.route('/promotional_posts', methods=['GET', 'POST'])
 @login_required
@@ -236,19 +243,37 @@ def promotional_posts():
             
             if not title or not content:
                 flash('Título e conteúdo são obrigatórios!', 'danger')
+                return redirect(url_for('promotional_posts'))
             else:
-                if action == 'create':
-                    data_manager.add_promotional_post(title, content, image_url, external_link)
-                    flash('Post promocional criado com sucesso!', 'success')
-                else:
-                    data_manager.update_promotional_post(post_id, title, content, image_url, external_link)
-                    flash('Post promocional atualizado com sucesso!', 'success')
+                try:
+                    if action == 'create':
+                        result = data_manager.add_promotional_post(title, content, image_url, external_link)
+                        if result:
+                            flash('Post promocional criado com sucesso!', 'success')
+                        else:
+                            flash('Erro ao criar post promocional. Verifique os logs para mais informações.', 'danger')
+                    else:
+                        result = data_manager.update_promotional_post(post_id, title, content, image_url, external_link)
+                        if result:
+                            flash('Post promocional atualizado com sucesso!', 'success')
+                        else:
+                            flash('Erro ao atualizar post promocional. Verifique os logs para mais informações.', 'danger')
+                except Exception as e:
+                    logging.error(f"Erro ao manipular post promocional: {str(e)}")
+                    flash(f'Erro ao processar solicitação: {str(e)}', 'danger')
         
         elif action == 'delete':
             post_id = request.form.get('post_id')
             if post_id:
-                data_manager.delete_promotional_post(post_id)
-                flash('Post promocional excluído com sucesso!', 'success')
+                try:
+                    result = data_manager.delete_promotional_post(post_id)
+                    if result:
+                        flash('Post promocional excluído com sucesso!', 'success')
+                    else:
+                        flash('Erro ao excluir post promocional. Verifique os logs para mais informações.', 'danger')
+                except Exception as e:
+                    logging.error(f"Erro ao excluir post promocional: {str(e)}")
+                    flash(f'Erro ao excluir post: {str(e)}', 'danger')
         
         elif action == 'test':
             post_id = request.form.get('post_id')
@@ -290,8 +315,15 @@ def welcome_messages():
             welcome_message = request.form.get('welcome_message')
             enabled = request.form.get('enabled') == 'on'
             
-            data_manager.update_welcome_config(welcome_message, enabled)
-            flash('Configuração de boas-vindas atualizada com sucesso!', 'success')
+            try:
+                success = data_manager.update_welcome_config(welcome_message, enabled)
+                if success:
+                    flash('Configuração de boas-vindas atualizada com sucesso!', 'success')
+                else:
+                    flash('Erro ao atualizar configuração de boas-vindas. Verifique os logs para mais informações.', 'danger')
+            except Exception as e:
+                logging.error(f"Erro ao atualizar configuração de boas-vindas: {str(e)}")
+                flash(f'Erro ao atualizar configuração: {str(e)}', 'danger')
         
         elif action == 'test':
             if not TELEGRAM_AVAILABLE:
@@ -340,9 +372,16 @@ def settings():
                     interval = 10  # Valor padrão
             except:
                 interval = 10  # Valor padrão
-                
-            data_manager.update_bot_config(token, group_id, interval)
-            flash('Configurações atualizadas com sucesso!', 'success')
+            
+            try:
+                success = data_manager.update_bot_config(token, group_id, interval)
+                if success:
+                    flash('Configurações atualizadas com sucesso!', 'success')
+                else:
+                    flash('Erro ao atualizar configurações. Verifique os logs para mais informações.', 'danger')
+            except Exception as e:
+                logging.error(f"Erro ao atualizar configurações do bot: {str(e)}")
+                flash(f'Erro ao atualizar configurações: {str(e)}', 'danger')
             
         elif action == 'toggle_bot':
             new_status = request.form.get('status') == 'true'
@@ -351,11 +390,27 @@ def settings():
             # Verifica se o módulo Telegram está disponível
             if new_status and not TELEGRAM_AVAILABLE:
                 flash('Não é possível ativar o bot: Módulo Telegram não disponível. Instale python-telegram-bot.', 'warning')
-                data_manager.update_bot_status(False)  # Força o status como desativado
+                try:
+                    success = data_manager.update_bot_status(False)  # Força o status como desativado
+                    if not success:
+                        logging.error("Erro ao forçar status do bot como desativado")
+                        flash('Erro ao atualizar status do bot. Verifique os logs para mais detalhes.', 'danger')
+                except Exception as e:
+                    logging.error(f"Erro ao forçar status do bot como desativado: {str(e)}")
+                    flash(f'Erro ao atualizar status do bot: {str(e)}', 'danger')
                 return redirect(url_for('settings'))
             
             # Salva o novo status na configuração
-            data_manager.update_bot_status(new_status)
+            try:
+                success = data_manager.update_bot_status(new_status)
+                if not success:
+                    logging.error("Erro ao atualizar status do bot")
+                    flash('Erro ao atualizar status do bot. Verifique os logs para mais detalhes.', 'danger')
+                    return redirect(url_for('settings'))
+            except Exception as e:
+                logging.error(f"Erro ao atualizar status do bot: {str(e)}")
+                flash(f'Erro ao atualizar status do bot: {str(e)}', 'danger')
+                return redirect(url_for('settings'))
             
             if new_status:
                 # Ativar o bot usando nossa função centralizada
@@ -405,81 +460,67 @@ def settings():
     try:
         # Carregar somente os dados essenciais para renderizar a página mais rápido
         config = data_manager.get_bot_config()
+        
+        # Registra o tempo de processamento
+        end_time = datetime.now()
+        time_diff = (end_time - start_time).total_seconds()
+        logging.info(f"Tempo para processar página de configurações: {time_diff} segundos")
+        
+        # Verifica se o módulo telegram está disponível
         telegram_warning = not TELEGRAM_AVAILABLE
-            
+        
+        # Renderiza a página com os dados mínimos necessários
         return render_template('settings.html', config=config, telegram_warning=telegram_warning)
     except Exception as e:
-        # Falha segura em caso de erro
-        logging.error(f"Erro ao acessar página de configurações: {str(e)}")
-        flash(f"Erro ao carregar configurações: {str(e)}", "danger")
+        logging.error(f"Erro ao renderizar página de configurações: {str(e)}")
+        flash(f'Erro ao carregar configurações: {str(e)}', 'danger')
         return redirect(url_for('dashboard'))
 
 @app.route('/logs')
 @login_required
 def logs():
-    # Tempo máximo em milissegundos para ler o arquivo de log
-    max_time_ms = 500
+    global bot_handler, scheduler
     
-    # Obter os logs mais recentes
-    log_entries = []
+    # Lê os últimos 100 logs
+    logs = []
     try:
-        start_time = datetime.now()
-        if os.path.exists('bot_admin.log'):
-            with open('bot_admin.log', 'r') as f:
-                # Ler as últimas 100 linhas (mais rápido do que ler tudo)
-                lines = f.readlines()[-100:]
-                for line in lines:
-                    # Processar somente se ainda estiver dentro do limite de tempo
-                    current_time = datetime.now()
-                    elapsed_ms = (current_time - start_time).total_seconds() * 1000
-                    if elapsed_ms > max_time_ms:
-                        log_entries.append("Carregamento de logs interrompido para evitar timeout...")
-                        break
-                        
-                    log_entries.append(line.strip())
+        with open('bot_admin.log', 'r') as log_file:
+            logs = log_file.readlines()[-100:]
     except Exception as e:
-        log_entries.append(f"Erro ao ler logs: {str(e)}")
+        logging.error(f"Erro ao ler logs: {str(e)}")
+        flash(f'Erro ao ler logs: {str(e)}', 'danger')
     
-    # Informações de diagnóstico
-    diagnostic = {
-        'python_version': sys.version,
-        'app_path': os.path.abspath(__file__),
-        'data_dir_exists': os.path.exists(data_dir),
-        'telegram_module': TELEGRAM_AVAILABLE
-    }
+    # Diagnóstico básico
+    diagnostic = {}
+    
+    # Verifica se o token está configurado
+    config = data_manager.get_bot_config()
+    diagnostic['token_configured'] = bool(config.get('token', ''))
+    diagnostic['group_configured'] = bool(config.get('group_id', ''))
+    
+    # Verifica se o bot está online
+    diagnostic['bot_online'] = False
+    if bot_handler:
+        try:
+            diagnostic['bot_online'] = bot_handler.is_running()
+        except Exception as e:
+            logging.error(f"Erro ao verificar status do bot: {str(e)}")
+    
+    # Verifica se há posts promocionais configurados
+    posts = data_manager.get_promotional_posts()
+    diagnostic['posts_configured'] = len(posts) > 0
+    
+    # Verifica se há mensagem de boas-vindas configurada
+    welcome_config = data_manager.get_welcome_config()
+    diagnostic['welcome_configured'] = bool(welcome_config.get('message', ''))
     
     # Verifica se o módulo telegram está disponível
     telegram_warning = not TELEGRAM_AVAILABLE
     
-    # Renderizar o template
+    # Adiciona informação de módulos disponíveis ao diagnóstico
+    diagnostic['telegram_module'] = TELEGRAM_AVAILABLE
+    
     return render_template('logs.html', logs=logs, diagnostic=diagnostic, telegram_warning=telegram_warning)
 
-@app.route('/api/bot/status')
-@login_required
-def api_bot_status():
-    """API para verificar o status do bot (para atualizações em tempo real no dashboard)"""
-    if not bot_handler:
-        return {'status': 'not_configured', 'active': False, 'running': False}
-    
-    config = data_manager.get_bot_config()
-    active = config.get('active', False)
-    
-    try:
-        running = bot_handler.is_running() if active else False
-    except:
-        running = False
-        
-    return {'status': 'ok', 'active': active, 'running': running}
-
-# Tratamento de erros
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
-
-@app.errorhandler(500)
-def internal_server_error(e):
-    return render_template('500.html'), 500
-
-if __name__ == '__main__':
-    # Usado para testes locais, não será executado no ambiente de produção
+if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
