@@ -1,1 +1,87 @@
+{% extends 'base.html' %}
 
+{% block title %}Mensagens de Boas-vindas{% endblock %}
+
+{% block header %}Mensagens de Boas-vindas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Configuração da Mensagem de Boas-vindas</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('welcome_messages') }}">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if welcome_config.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="enabled">
+                            Ativar mensagens de boas-vindas
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="welcome_message" class="form-label">Mensagem de Boas-vindas</label>
+                        <textarea class="form-control" id="welcome_message" name="welcome_message" rows="6" onkeyup="previewWelcomeMessage()">{{ welcome_config.message }}</textarea>
+                        <small class="form-text text-muted">
+                            Você pode usar as seguintes variáveis:
+                            <ul>
+                                <li><code>{first_name}</code> - Primeiro nome do usuário</li>
+                                <li><code>{last_name}</code> - Sobrenome do usuário</li>
+                                <li><code>{username}</code> - Nome de usuário (ou primeiro nome, se não tiver)</li>
+                            </ul>
+                            Você também pode usar formatação HTML, como &lt;b&gt;negrito&lt;/b&gt; e &lt;i&gt;itálico&lt;/i&gt;.
+                        </small>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" class="btn btn-primary">Salvar Configuração</button>
+                        <button type="submit" name="test" value="1" class="btn btn-info">Testar Mensagem</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Pré-visualização</h5>
+            </div>
+            <div class="card-body">
+                <div id="welcome-preview">
+                    <div class="card bg-dark">
+                        <div class="card-body">
+                            <p class="card-text">{{ welcome_config.message|replace('{first_name}', '<b>João</b>')|replace('{last_name}', '<b>Silva</b>')|replace('{username}', '<b>joaosilva</b>')|safe }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card bg-dark">
+            <div class="card-header">
+                <h5 class="mb-0">Dicas e Informações</h5>
+            </div>
+            <div class="card-body">
+                <h6>Quando a mensagem de boas-vindas é enviada?</h6>
+                <p>A mensagem de boas-vindas é enviada automaticamente quando um novo membro entra no grupo onde o bot está adicionado.</p>
+                
+                <h6>Como testar a mensagem?</h6>
+                <p>Clique no botão "Testar Mensagem" para enviar uma versão de teste da mensagem para o grupo configurado.</p>
+                
+                <h6>Exemplos de mensagens de boas-vindas</h6>
+                <div class="alert alert-secondary">
+                    <p><strong>Exemplo 1:</strong></p>
+                    <p>Olá {first_name}! Bem-vindo(a) ao nosso grupo. Leia as regras fixadas e divirta-se!</p>
+                </div>
+                
+                <div class="alert alert-secondary">
+                    <p><strong>Exemplo 2:</strong></p>
+                    <p>Olá <b>{first_name} {last_name}</b>! Bem-vindo(a) ao grupo! Interaja com os membros e participe das nossas promoções.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
