@@ -1,1 +1,88 @@
+                    </div>`;
+                    
+                    // Insere antes do container de transição
+                    alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                // Exibe mensagem de erro
+                const alertsContainer = document.querySelector('.page-transition-container').parentNode;
+                const alertHtml = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    Erro de comunicação com o servidor.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                </div>`;
+                
+                // Insere antes do container de transição
+                alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
+            })
+            .finally(() => {
+                hideLoader();
+            });
+        }
 
+        function initializeTooltips() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        function initializeDashboard() {
+            // Código específico para o dashboard
+            console.log('Dashboard inicializado');
+        }
+
+        function setupPageTransitions() {
+            const links = document.querySelectorAll('a:not([target="_blank"]):not([href^="#"]):not([href^="javascript"]):not([href^="mailto"])');
+            
+            links.forEach(link => {
+                // Ignora links externos
+                if (link.hostname !== window.location.hostname) return;
+                
+                // Adiciona evento de clique
+                link.addEventListener('click', function(e) {
+                    // Não intercepta se com tecla modificadora
+                    if (e.metaKey || e.ctrlKey) return;
+                    
+                    e.preventDefault();
+                    const href = this.getAttribute('href');
+                    
+                    // Mostra o loader
+                    showLoader();
+                    
+                    // Navega após um pequeno delay para o loader ser visível
+                    setTimeout(() => {
+                        window.location.href = href;
+                    }, 300);
+                });
+            });
+            
+            // Também intercepta submissões de formulário para mostrar o loader
+            const forms = document.querySelectorAll('form:not([target="_blank"])');
+            
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    showLoader();
+                });
+            });
+        }
+
+        function showLoader() {
+            const loader = document.querySelector('.content-loader');
+            if (loader) {
+                loader.classList.add('show');
+            }
+        }
+
+        function hideLoader() {
+            const loader = document.querySelector('.content-loader');
+            if (loader) {
+                loader.classList.remove('show');
+            }
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
