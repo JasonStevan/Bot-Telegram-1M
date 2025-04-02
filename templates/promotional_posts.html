@@ -1,1 +1,169 @@
+{% extends 'base.html' %}
 
+{% block title %}Posts Promocionais{% endblock %}
+
+{% block header %}Posts Promocionais{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addPostForm" aria-expanded="false" aria-controls="addPostForm">
+            <i class="fas fa-plus"></i> Adicionar Novo Post
+        </button>
+    </div>
+</div>
+
+<div class="collapse mb-4" id="addPostForm">
+    <div class="card bg-dark">
+        <div class="card-header">
+            <h5 class="mb-0">Novo Post Promocional</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <form method="POST" action="{{ url_for('promotional_posts') }}">
+                        <input type="hidden" name="action" value="add">
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="title" name="title" required onkeyup="previewPost()">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Conteúdo</label>
+                            <textarea class="form-control" id="content" name="content" rows="5" required onkeyup="previewPost()"></textarea>
+                            <small class="form-text text-muted">Você pode usar formatação HTML, como &lt;b&gt;negrito&lt;/b&gt; e &lt;i&gt;itálico&lt;/i&gt;.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="image_url" class="form-label">URL da Imagem (opcional)</label>
+                            <input type="url" class="form-control" id="image_url" name="image_url" onchange="previewPost()">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="external_link" class="form-label">Link Externo (opcional)</label>
+                            <input type="url" class="form-control" id="external_link" name="external_link" onchange="previewPost()">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">Salvar Post</button>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <h5 class="mb-3">Pré-visualização</h5>
+                    <div id="post-preview">
+                        <div class="card bg-dark">
+                            <div class="card-body">
+                                <p class="text-muted">O conteúdo do post aparecerá aqui...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if posts %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card bg-dark">
+            <div class="card-header">
+                <h5 class="mb-0">Posts Existentes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Título</th>
+                                <th>Data de Criação</th>
+                                <th>Imagem</th>
+                                <th>Link Externo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in posts %}
+                            <tr>
+                                <td>{{ post.id }}</td>
+                                <td>{{ post.title }}</td>
+                                <td>{{ post.created_at }}</td>
+                                <td>{% if post.image_url %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
+                                <td>{% if post.external_link %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editPost{{ post.id }}" aria-expanded="false">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    
+                                    <form method="POST" action="{{ url_for('promotional_posts') }}" id="deleteForm{{ post.id }}" class="d-inline">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="post_id" value="{{ post.id }}">
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('deleteForm{{ post.id }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                    
+                                    <form method="POST" action="{{ url_for('promotional_posts') }}" class="d-inline">
+                                        <input type="hidden" name="action" value="test">
+                                        <input type="hidden" name="post_id" value="{{ post.id }}">
+                                        <button type="submit" class="btn btn-sm btn-info" data-bs-toggle="tooltip" data-bs-placement="top" title="Testar envio">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="editPost{{ post.id }}">
+                                <td colspan="6">
+                                    <div class="card bg-secondary">
+                                        <div class="card-body">
+                                            <form method="POST" action="{{ url_for('promotional_posts') }}">
+                                                <input type="hidden" name="action" value="edit">
+                                                <input type="hidden" name="post_id" value="{{ post.id }}">
+                                                
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="edit_title{{ post.id }}" class="form-label">Título</label>
+                                                            <input type="text" class="form-control" id="edit_title{{ post.id }}" name="title" value="{{ post.title }}" required>
+                                                        </div>
+                                                        
+                                                        <div class="mb-3">
+                                                            <label for="edit_content{{ post.id }}" class="form-label">Conteúdo</label>
+                                                            <textarea class="form-control" id="edit_content{{ post.id }}" name="content" rows="4" required>{{ post.content }}</textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="edit_image_url{{ post.id }}" class="form-label">URL da Imagem</label>
+                                                            <input type="url" class="form-control" id="edit_image_url{{ post.id }}" name="image_url" value="{{ post.image_url }}">
+                                                        </div>
+                                                        
+                                                        <div class="mb-3">
+                                                            <label for="edit_external_link{{ post.id }}" class="form-label">Link Externo</label>
+                                                            <input type="url" class="form-control" id="edit_external_link{{ post.id }}" name="external_link" value="{{ post.external_link }}">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <button type="submit" class="btn btn-success">Salvar Alterações</button>
+                                                <button type="button" class="btn btn-secondary" data-bs-toggle="collapse" data-bs-target="#editPost{{ post.id }}">Cancelar</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    Não há posts promocionais cadastrados. Adicione um novo post usando o formulário acima.
+</div>
+{% endif %}
+{% endblock %}
