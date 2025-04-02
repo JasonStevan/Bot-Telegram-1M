@@ -1,1 +1,184 @@
+{% extends 'base.html' %}
 
+{% block title %}Dashboard{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-stats">
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark h-100">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Status do Bot</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h6 class="mb-0">
+                                <span id="bot-status-indicator" class="bot-status-indicator {% if stats.online %}online{% else %}offline{% endif %}"></span>
+                                <span id="bot-status-text">{% if stats.online %}Online{% else %}Offline{% endif %}</span>
+                            </h6>
+                            <small class="text-muted">Último reinício: {{ stats.last_restarted_formatted }}</small>
+                        </div>
+                        <button id="toggle-bot-button" 
+                                class="btn {% if stats.online %}btn-danger{% else %}btn-success{% endif %}"
+                                onclick="toggleBotStatus({% if stats.online %}false{% else %}true{% endif %})">
+                            {% if stats.online %}Desativar Bot{% else %}Ativar Bot{% endif %}
+                        </button>
+                    </div>
+                    <div class="mt-3">
+                        <h6>Configuração atual:</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item bg-dark d-flex justify-content-between">
+                                <span>Token:</span>
+                                <span class="text-muted">{{ stats.token[:10] }}...{{ stats.token[-5:] if stats.token else '' }}</span>
+                            </li>
+                            <li class="list-group-item bg-dark d-flex justify-content-between">
+                                <span>ID do Grupo:</span>
+                                <span class="text-muted">{{ stats.group_id }}</span>
+                            </li>
+                            <li class="list-group-item bg-dark d-flex justify-content-between">
+                                <span>Intervalo de Posts:</span>
+                                <span class="text-muted">{{ stats.interval }} minutos</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{{ url_for('settings') }}" class="btn btn-outline-primary">Editar Configurações</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark h-100">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Estatísticas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div>Mensagens de Boas-vindas Enviadas</div>
+                            <div class="badge bg-info">{{ stats.welcome_messages_sent }}</div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ (stats.welcome_messages_sent / 100) * 100 if stats.welcome_messages_sent < 100 else 100 }}%;" aria-valuenow="{{ stats.welcome_messages_sent }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <div>Posts Promocionais Enviados</div>
+                            <div class="badge bg-success">{{ stats.promo_messages_sent }}</div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ (stats.promo_messages_sent / 100) * 100 if stats.promo_messages_sent < 100 else 100 }}%;" aria-valuenow="{{ stats.promo_messages_sent }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{{ url_for('logs') }}" class="btn btn-outline-secondary">Ver Logs</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card bg-dark h-100">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Ações Rápidas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('promotional_posts') }}" class="btn btn-outline-primary d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-bullhorn me-2"></i> Gerenciar Posts Promocionais</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        <a href="{{ url_for('welcome_messages') }}" class="btn btn-outline-primary d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-handshake me-2"></i> Configurar Boas-vindas</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        <a href="{{ url_for('settings') }}" class="btn btn-outline-primary d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-cogs me-2"></i> Configurações</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <button class="btn btn-primary" onclick="location.reload();">
+                        <i class="fas fa-sync-alt me-2"></i> Atualizar Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-dark">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Manual Rápido</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="manualAccordion">
+                        <div class="accordion-item bg-dark">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                    Como configurar o bot
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Vá para <a href="{{ url_for('settings') }}">Configurações</a></li>
+                                        <li>Insira o token do seu bot obtido do @BotFather no Telegram</li>
+                                        <li>Insira o ID do grupo do Telegram onde o bot atuará</li>
+                                        <li>Defina o intervalo desejado (em minutos) entre postagens promocionais</li>
+                                        <li>Salve as configurações e depois ative o bot no Dashboard</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item bg-dark">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    Criação de posts promocionais
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Vá para <a href="{{ url_for('promotional_posts') }}">Posts Promocionais</a></li>
+                                        <li>Clique em "Novo Post" para criar um novo post promocional</li>
+                                        <li>Adicione título, conteúdo, uma URL de imagem (opcional) e um link externo (opcional)</li>
+                                        <li>Salve o post - ele será enviado automaticamente na sequência quando o bot estiver ativo</li>
+                                        <li>Você pode editar, excluir ou testar o envio de qualquer post a qualquer momento</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item bg-dark">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    Configuração de mensagens de boas-vindas
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Vá para <a href="{{ url_for('welcome_messages') }}">Mensagens de Boas-vindas</a></li>
+                                        <li>Personalize a mensagem que será enviada aos novos membros do grupo</li>
+                                        <li>Use as variáveis {first_name}, {last_name} e {username} para personalizar a mensagem</li>
+                                        <li>Ative ou desative o envio de mensagens de boas-vindas com a caixa de seleção</li>
+                                        <li>Clique em "Enviar Teste" para ver como sua mensagem aparecerá no grupo</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
