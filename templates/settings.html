@@ -1,78 +1,207 @@
 {% extends 'base.html' %}
 
-{% block title %}Configurações{% endblock %}
-
-{% block header %}Configurações do Bot{% endblock %}
+{% block title %}Configurações | Painel de Administração do Bot Telegram{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-6">
-        <div class="card bg-dark mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Configurações Básicas</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('settings') }}">
-                    <div class="mb-3">
-                        <label for="token" class="form-label">Token do Bot</label>
-                        <input type="text" class="form-control" id="token" name="token" value="{{ config.token }}" required>
-                        <small class="form-text text-muted">O token pode ser obtido através do <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram.</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="group_id" class="form-label">ID do Grupo</label>
-                        <input type="text" class="form-control" id="group_id" name="group_id" value="{{ config.group_id }}" required>
-                        <small class="form-text text-muted">O ID do grupo onde o bot será usado. Deve começar com "-". O bot precisa ser adicionado como administrador do grupo.</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="interval" class="form-label">Intervalo entre Posts (minutos)</label>
-                        <input type="number" class="form-control" id="interval" name="interval" value="{{ config.interval }}" min="1" max="1440" required>
-                        <small class="form-text text-muted">Intervalo de tempo entre o envio de posts promocionais. Recomendado: 3 a 180 minutos.</small>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">Salvar Configurações</button>
-                </form>
-            </div>
+{% if telegram_warning is defined and telegram_warning %}
+<!-- Alerta para módulo telegram indisponível -->
+<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+    <h4 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Atenção!</h4>
+    <p>O módulo <strong>python-telegram-bot</strong> não está instalado corretamente. As funcionalidades do bot do Telegram estão desabilitadas.</p>
+    <hr>
+    <p class="mb-0">Para resolver este problema, execute o comando: <code>pip install python-telegram-bot==13.15</code></p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+</div>
+{% endif %}
+<div class="fade-in">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Configurações</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <button class="btn btn-sm btn-outline-secondary {% if telegram_warning is defined and telegram_warning %}disabled{% endif %}" 
+                    {% if telegram_warning is not defined or not telegram_warning %}
+                    onclick="document.getElementById('restartForm').submit()"
+                    {% endif %}>
+                <i class="fas fa-sync-alt me-1"></i>Reiniciar Bot
+            </button>
         </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="card bg-dark mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Instruções de Configuração</h5>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Configurações do Bot</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('settings') }}" id="configForm">
+                        <input type="hidden" name="action" value="save_config">
+                        
+                        <div class="mb-3">
+                            <label for="token" class="form-label">Token do Bot Telegram</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="token" name="token" value="{{ config.token if config else '' }}" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleToken">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Obtenha um token do <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="group_id" class="form-label">ID do Grupo/Supergrupo</label>
+                            <input type="text" class="form-control" id="group_id" name="group_id" value="{{ config.group_id if config else '' }}" required>
+                            <div class="form-text">
+                                Digite o ID do grupo (ex: -100123456789). Para obter o ID, adicione o bot ao grupo e envie o comando /id.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="interval" class="form-label">Intervalo entre Posts Promocionais (minutos)</label>
+                            <input type="number" class="form-control" id="interval" name="interval" min="1" max="1440" value="{{ config.interval if config else 10 }}" required>
+                            <div class="form-text">
+                                Tempo em minutos entre o envio de cada post promocional (entre 1 e 1440 minutos).
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="card-body">
-                <h6>Como obter o Token do Bot</h6>
-                <ol>
-                    <li>Abra o <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram</li>
-                    <li>Envie o comando /newbot para criar um novo bot</li>
-                    <li>Siga as instruções para definir um nome e username para o bot</li>
-                    <li>Após criar o bot, você receberá um token de acesso em formato de texto</li>
-                    <li>Copie e cole o token no campo acima</li>
-                </ol>
-                
-                <h6>Como obter o ID do Grupo</h6>
-                <ol>
-                    <li>Adicione o bot como <b>administrador</b> do grupo</li>
-                    <li>Envie uma mensagem no grupo</li>
-                    <li>Acesse <a href="https://api.telegram.org/bot<seu_token>/getUpdates" target="_blank">https://api.telegram.org/bot<seu_token>/getUpdates</a> (substitua <seu_token> pelo token do seu bot)</li>
-                    <li>Procure na resposta JSON por "chat" e "id" (será um número negativo)</li>
-                    <li>Copie esse ID para o campo acima</li>
-                </ol>
-                
-                <h6>Permissões necessárias do Bot</h6>
-                <p>O bot precisa das seguintes permissões como administrador do grupo:</p>
-                <ul>
-                    <li>Enviar mensagens</li>
-                    <li>Adicionar novos usuários</li>
-                </ul>
-                
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Após salvar as configurações, o bot será reiniciado automaticamente.
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Status do Bot</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h6 class="mb-1">Status atual:</h6>
+                            <div class="d-flex align-items-center">
+                                <div class="status-indicator me-2 {% if config and config.active %}active{% endif %}"></div>
+                                <span>{{ 'Ativo' if config and config.active else 'Inativo' }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            {% if telegram_warning is not defined or not telegram_warning %}
+                                <button class="btn btn-{% if config and config.active %}danger{% else %}success{% endif %}" onclick="toggleBotStatus({{ (not config.active)|lower if config else 'true' }})">
+                                    <i class="fas fa-power-off me-1"></i>{{ 'Desativar' if config and config.active else 'Ativar' }} Bot
+                                </button>
+                            {% else %}
+                                <button class="btn btn-secondary" disabled>
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Módulo Telegram Indisponível
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-primary" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span>
+                            {% if config and config.active %}
+                                O bot está ativo e enviará posts promocionais automaticamente a cada <strong>{{ config.interval }}</strong> minutos.
+                            {% else %}
+                                O bot está inativo. Ative-o para começar a enviar posts promocionais automaticamente.
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <form method="post" action="{{ url_for('settings') }}" id="restartForm" class="d-none">
+                        <input type="hidden" name="action" value="restart_bot">
+                    </form>
+                    
+                    <form method="post" action="{{ url_for('settings') }}" id="toggleForm" class="d-none">
+                        <input type="hidden" name="action" value="toggle_bot">
+                        <input type="hidden" name="status" id="statusValue" value="true">
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Ajuda e Dicas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6><i class="fas fa-key me-2"></i>Token do Bot</h6>
+                        <p class="text-muted small">O token é uma string gerada pelo @BotFather no Telegram. É como uma senha para o seu bot e deve ser mantida em segredo.</p>
+                        <ol class="small text-muted">
+                            <li>Converse com o <a href="https://t.me/BotFather" target="_blank">@BotFather</a> no Telegram</li>
+                            <li>Envie o comando /newbot e siga as instruções</li>
+                            <li>Copie o token gerado e cole no campo Token</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-users me-2"></i>ID do Grupo</h6>
+                        <p class="text-muted small">O ID do grupo é um número único que identifica seu grupo no Telegram. Para grupos normais, começa com '-' e para supergrupos, com '-100'.</p>
+                        <ol class="small text-muted">
+                            <li>Adicione seu bot ao grupo como administrador</li>
+                            <li>Envie o comando /id no grupo</li>
+                            <li>Copie o número retornado pelo bot</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-clock me-2"></i>Intervalo entre Posts</h6>
+                        <p class="text-muted small">O intervalo controla a frequência com que os posts promocionais são enviados. Valores muito baixos podem sobrecarregar o grupo e irritar os membros.</p>
+                        <ul class="small text-muted">
+                            <li>Para grupos pequenos: 120-240 minutos (2-4 horas)</li>
+                            <li>Para grupos médios: 60-120 minutos (1-2 horas)</li>
+                            <li>Para grupos ativos: 30-60 minutos</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning small" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Certifique-se de que seu bot tenha permissões de administrador no grupo para poder enviar mensagens.
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-indicator {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background-color: #6c757d;
+    }
+    .status-indicator.active {
+        background-color: #28a745;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('toggleToken');
+        const tokenInput = document.getElementById('token');
+        
+        toggleBtn.addEventListener('click', function() {
+            const type = tokenInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            tokenInput.setAttribute('type', type);
+            toggleBtn.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+        
+        initializeTooltips();
+    });
+    
+    function toggleBotStatus(status) {
+        document.getElementById('statusValue').value = status.toString();
+        document.getElementById('toggleForm').submit();
+    }
+</script>
 {% endblock %}
