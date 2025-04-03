@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Diagnóstico do Sistema{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Diagnóstico do Sistema</h1>
+    
+    <!-- Status do Bot -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Status do Bot</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Token configurado
+                            {% if diag.bot_status.token_set %}
+                                <span class="badge bg-success">Sim</span>
+                            {% else %}
+                                <span class="badge bg-danger">Não</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            ID do grupo configurado
+                            {% if diag.bot_status.group_id_set %}
+                                <span class="badge bg-success">Sim</span>
+                            {% else %}
+                                <span class="badge bg-danger">Não</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Bot ativo
+                            {% if diag.bot_status.active %}
+                                <span class="badge bg-success">Sim</span>
+                            {% else %}
+                                <span class="badge bg-danger">Não</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Agendador em execução
+                            {% if diag.bot_status.scheduler_running %}
+                                <span class="badge bg-success">Sim</span>
+                            {% else %}
+                                <span class="badge bg-danger">Não</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Posts Promocionais -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Posts Promocionais</h5>
+        </div>
+        <div class="card-body">
+            <p>Total de posts: <strong>{{ diag.posts.count }}</strong></p>
+            
+            {% if diag.posts.latest %}
+            <div class="card">
+                <div class="card-header">Post mais recente</div>
+                <div class="card-body">
+                    <h6>{{ diag.posts.latest.text }}</h6>
+                    <p class="text-muted">ID: {{ diag.posts.latest.id }}<br>
+                    Criado em: {{ diag.posts.latest.created_at }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">Nenhum post cadastrado.</div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Sistema -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">Sistema</h5>
+        </div>
+        <div class="card-body">
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Diretório de dados existe
+                    {% if diag.system.data_dir_exists %}
+                        <span class="badge bg-success">Sim</span>
+                    {% else %}
+                        <span class="badge bg-danger">Não</span>
+                    {% endif %}
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Arquivos de dados OK
+                    {% if diag.system.data_files_ok %}
+                        <span class="badge bg-success">Sim</span>
+                    {% else %}
+                        <span class="badge bg-danger">Não</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Logs -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Últimos Logs</h5>
+        </div>
+        <div class="card-body">
+            <pre class="bg-dark text-light p-3" style="height: 300px; overflow-y: auto;">{% for line in diag.logs %}{{ line }}{% endfor %}</pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
