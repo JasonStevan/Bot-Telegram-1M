@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Erro{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Ocorreu um erro</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        {{ error }}
+                    </div>
+                    <p>O sistema encontrou um erro ao processar sua solicitação. Este erro foi registrado e será analisado pelo administrador.</p>
+                    <p>Por favor, tente novamente mais tarde ou entre em contato com o suporte se o problema persistir.</p>
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Voltar para a página inicial
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
